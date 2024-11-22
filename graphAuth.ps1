@@ -2,8 +2,7 @@
 # Install the Microsoft.Graph module if not already installed
 # Install-Module Microsoft.Graph -Scope CurrentUser
 
-# Import the Microsoft.Graph module
-Import-Module Microsoft.Graph
+# Use the Microsoft Graph REST API directly without importing the module
 
 # parent directory is the directory where the script is located
 $parentdir = Split-Path -Parent $MyInvocation.MyCommand.Definition
@@ -20,20 +19,34 @@ $scopes = @("Directory.Read.All")
 # Connect to Microsoft Graph
 Connect-MgGraph -Scopes $scopes
 
-#environment variable
-$accessToken = (Get-MgContext).AccessToken
+# Retrieve access token using MSAL.PS module
+# Install the MSAL.PS module if not already installed
+# Install-Module -Name MSAL.PS -Scope CurrentUser
+
+# Set Azure AD application details
 $tenantId = (Get-MgContext).tenantId
 $clientId = (Get-MgContext).clientId
 $clientSecret = (Get-MgContext).clientSecret
 
+# Get the access token
+$accessTokenResponse = Get-MsalToken -TenantId $tenantId -ClientId $clientId -ClientSecret $clientSecret -Scope "https://graph.microsoft.com/.default"
+$accessToken = $accessTokenResponse.AccessToken
 
-# Retrieve license details
-$licenses = Get-MgSubscribedSku
+# Set the URI for retrieving license details
+$uri = "https://graph.microsoft.com/v1.0/subscribedSkus"
 
-foreach ($license in $licenses) {
-    $skuPartNumber = $license.SkuPartNumber
-    $totalLicenses = $license.PrepaidUnits.Enabled
-    $consumedLicenses = $license.ConsumedUnits
+# Make the REST API request using Invoke-RestMethod
+$headers = @{
+    'Authorization' = "Bearer $accessToken"
+    'Content-Type'  = 'application/json'
+}
+
+$licenses = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+
+foreach ($license in $licenses.value) {
+    $skuPartNumber = $license.skuPartNumber
+    $totalLicenses = $license.prepaidUnits.enabled
+    $consumedLicenses = $license.consumedUnits
     $availableLicenses = $totalLicenses - $consumedLicenses
 
     # Prepare data to save to CSV
