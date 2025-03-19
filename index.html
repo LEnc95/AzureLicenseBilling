@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Azure AD License Tracker</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/static/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -34,27 +34,85 @@
             width: 100% !important;
             height: 75vh !important;
         }
+
+        .filter-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .filter-container button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <h1>Azure AD License Tracker</h1>
+    <div class="filter-container">
+                <button onclick="setView('week')">Weekly View</button>
+        <button onclick="setView('month')">Monthly View</button>
+        <button onclick="setView('year')">Yearly View</button>
+    </div>
     <div id="trackers-container"></div>
     <script>
+        let licenseData = [];
+
         // Fetch license data from the API and render charts
         async function fetchLicenseData() {
             try {
                 const response = await fetch('http://127.0.0.1:5000/api/licenses');
                 const data = await response.json();
-                renderLicenseTrackers(data);
+                licenseData = data;
+                setView('week'); // Default to weekly view after fetching data
             } catch (error) {
                 console.error('Error fetching license data:', error);
             }
         }
 
+        // Set view filter for daily, weekly, monthly, or yearly
+        function setView(view) {
+            let filteredData = [];
+            const now = new Date();
+
+            switch (view) {
+                                case 'week':
+                    filteredData = licenseData.filter(entry => {
+                        const entryDate = new Date(entry.Date);
+                        const oneWeekAgo = new Date(now);
+                        oneWeekAgo.setDate(now.getDate() - 7);
+                        return entryDate >= oneWeekAgo && entryDate <= now;
+                    });
+                    break;
+                case 'month':
+                    filteredData = licenseData.filter(entry => {
+                        const entryDate = new Date(entry.Date);
+                        return entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear();
+                    });
+                    break;
+                case 'year':
+                    filteredData = licenseData.filter(entry => {
+                        const entryDate = new Date(entry.Date);
+                        return entryDate.getFullYear() === now.getFullYear();
+                    });
+                    break;
+                default:
+                    filteredData = licenseData;
+            }
+            renderLicenseTrackers(filteredData);
+        }
+
         // Render each SKU tracker
         function renderLicenseTrackers(data) {
             const container = document.getElementById('trackers-container');
+            container.innerHTML = '';
             
+            if (data.length === 0) {
+                container.innerHTML = '<p>No data available for the selected view.</p>';
+                return;
+            }
+
             const groupedBySKU = {};
             data.forEach(entry => {
                 if (!groupedBySKU[entry.SkuPartNumber]) {
@@ -64,6 +122,9 @@
             });
 
             Object.keys(groupedBySKU).forEach(sku => {
+                // Sort data by date
+                groupedBySKU[sku].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+
                 // Create a div to hold each SKU tracker
                 const skuDiv = document.createElement('div');
                 skuDiv.className = 'sku-tracker';
