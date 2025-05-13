@@ -1,193 +1,248 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Azure AD License Tracker</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        
-        h1 {
-            text-align: center;
-        }
-        
-        .sku-tracker {
-            background-color: #ffffff;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        
-        h2 {
-            font-size: 1.5em;
-        }
-        
-        canvas {
-            width: 100% !important;
-            height: 75vh !important;
-        }
-
-        .filter-container {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .filter-container button {
-            margin: 5px;
-            padding: 10px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Azure AD License Tracker</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .sku-tracker {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: white;
+    }
+    .sku-tracker canvas {
+      height: 400px !important;
+      width: 100% !important;
+    }
+    .filter-container {
+      margin: 20px 0;
+    }
+    .sku-selector {
+      padding: 8px;
+      font-size: 16px;
+      border-radius: 4px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Azure AD License Tracker</h1>
-    <div class="filter-container">
-                <button onclick="setView('week')">Weekly View</button>
-        <button onclick="setView('month')">Monthly View</button>
-        <button onclick="setView('year')">Yearly View</button>
-    </div>
-    <div id="trackers-container"></div>
-    <script>
-        let licenseData = [];
+  <h1>Azure AD License Tracker</h1>
 
-        // Fetch license data from the API and render charts
-        async function fetchLicenseData() {
-            try {
-                const response = await fetch('http://127.0.0.1:5000/api/licenses');
-                const data = await response.json();
-                licenseData = data;
-                setView('week'); // Default to weekly view after fetching data
-            } catch (error) {
-                console.error('Error fetching license data:', error);
+  <div class="filter-container">
+    <select id="sku-select" class="sku-selector" onchange="setSKUFilter(this.value)">
+      <option value="ALL">All SKUs</option>
+    </select>
+  </div>
+
+  <div id="trackers-container"></div>
+
+  <script>
+    let licenseData = [];
+    let selectedSKU = "ALL";
+    const chartInstances = {};
+
+    async function fetchLicenseData() {
+      try {
+        const response = await fetch('/api/licenses');
+        const data = await response.json();
+        console.log('Raw license data:', data);
+        console.log('Number of entries:', data.length);
+        
+        // Log the first entry in detail
+        if (data.length > 0) {
+          console.log('Sample entry structure:', {
+            raw: data[0],
+            dateFields: {
+              DateRetrieved: data[0].DateRetrieved,
+              Date: data[0].Date,
+              allKeys: Object.keys(data[0])
             }
+          });
         }
 
-        // Set view filter for daily, weekly, monthly, or yearly
-        function setView(view) {
-            let filteredData = [];
-            const now = new Date();
+        console.log('Date range:', {
+          earliest: new Date(Math.min(...data.map(d => new Date(d.DateRetrieved || d.Date)))),
+          latest: new Date(Math.max(...data.map(d => new Date(d.DateRetrieved || d.Date))))
+        });
+        licenseData = data;
+        populateSKUFilter(data);
+        renderLicenseTrackers();
+      } catch (error) {
+        console.error('Error fetching license data:', error);
+      }
+    }
 
-            switch (view) {
-                                case 'week':
-                    filteredData = licenseData.filter(entry => {
-                        const entryDate = new Date(entry.Date);
-                        const oneWeekAgo = new Date(now);
-                        oneWeekAgo.setDate(now.getDate() - 7);
-                        return entryDate >= oneWeekAgo && entryDate <= now;
-                    });
-                    break;
-                case 'month':
-                    filteredData = licenseData.filter(entry => {
-                        const entryDate = new Date(entry.Date);
-                        return entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear();
-                    });
-                    break;
-                case 'year':
-                    filteredData = licenseData.filter(entry => {
-                        const entryDate = new Date(entry.Date);
-                        return entryDate.getFullYear() === now.getFullYear();
-                    });
-                    break;
-                default:
-                    filteredData = licenseData;
-            }
-            renderLicenseTrackers(filteredData);
+    function populateSKUFilter(data) {
+      const skuSet = new Set(data.map(entry => entry.SKUPartNumber));
+      const select = document.getElementById('sku-select');
+      select.innerHTML = '<option value="ALL">All SKUs</option>';
+      [...skuSet].sort().forEach(sku => {
+        const option = document.createElement('option');
+        option.value = sku;
+        option.textContent = sku;
+        select.appendChild(option);
+      });
+    }
+
+    function setSKUFilter(sku) {
+      selectedSKU = sku;
+      renderLicenseTrackers();
+    }
+
+    function renderLicenseTrackers() {
+      const container = document.getElementById('trackers-container');
+      container.innerHTML = '';
+
+      const groupedBySKU = {};
+
+      // First, let's log all unique dates we have
+      const allDates = new Set(licenseData.map(entry => entry.DateRetrieved || entry.Date));
+      console.log('All unique dates in dataset:', [...allDates].sort());
+
+      licenseData.forEach(entry => {
+        const date = entry.DateRetrieved || entry.Date;
+        const sku = entry.SKUPartNumber;
+
+        if (selectedSKU !== "ALL" && selectedSKU !== sku) return;
+
+        if (!groupedBySKU[sku]) groupedBySKU[sku] = [];
+        groupedBySKU[sku].push({ ...entry, Date: date });
+      });
+
+      Object.keys(groupedBySKU).forEach(sku => {
+        const entries = groupedBySKU[sku].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+        console.log(`Data for SKU ${sku}:`, {
+          totalEntries: entries.length,
+          dateRange: {
+            earliest: entries[0]?.Date,
+            latest: entries[entries.length - 1]?.Date
+          },
+          entries: entries
+        });
+
+        const skuDiv = document.createElement('div');
+        skuDiv.className = 'sku-tracker';
+        skuDiv.innerHTML = `<h2>${sku}</h2>`;
+
+        const canvas = document.createElement('canvas');
+        canvas.id = `${sku}-chart`;
+
+        skuDiv.appendChild(canvas);
+        container.appendChild(skuDiv);
+
+        const ctx = canvas.getContext('2d');
+        if (chartInstances[sku]) {
+          chartInstances[sku].destroy();
         }
 
-        // Render each SKU tracker
-        function renderLicenseTrackers(data) {
-            const container = document.getElementById('trackers-container');
-            container.innerHTML = '';
-            
-            if (data.length === 0) {
-                container.innerHTML = '<p>No data available for the selected view.</p>';
-                return;
-            }
+        // Format dates for display
+        const formattedDates = entries.map(e => {
+          const date = new Date(e.Date);
+          return date.toLocaleDateString();
+        });
 
-            const groupedBySKU = {};
-            data.forEach(entry => {
-                if (!groupedBySKU[entry.SkuPartNumber]) {
-                    groupedBySKU[entry.SkuPartNumber] = [];
-                }
-                groupedBySKU[entry.SkuPartNumber].push(entry);
-            });
-
-            Object.keys(groupedBySKU).forEach(sku => {
-                // Sort data by date
-                groupedBySKU[sku].sort((a, b) => new Date(a.Date) - new Date(b.Date));
-
-                // Create a div to hold each SKU tracker
-                const skuDiv = document.createElement('div');
-                skuDiv.className = 'sku-tracker';
-                skuDiv.innerHTML = `<h2>${sku}</h2><canvas id="${sku}-chart"></canvas>`;
-                container.appendChild(skuDiv);
-
-                // Extract data for charting
-                const dates = groupedBySKU[sku].map(entry => entry.Date);
-                const totalLicenses = groupedBySKU[sku].map(entry => entry.TotalLicenses);
-                const consumedLicenses = groupedBySKU[sku].map(entry => entry.ConsumedLicenses);
-                const availableLicenses = groupedBySKU[sku].map(entry => entry.AvailableLicenses);
-
-                // Create a chart for each SKU
-                const ctx = document.getElementById(`${sku}-chart`).getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: dates,
-                        datasets: [
-                            {
-                                label: 'Total Licenses',
-                                data: totalLicenses,
-                                borderColor: 'blue',
-                                fill: false
-                            },
-                            {
-                                label: 'Consumed Licenses',
-                                data: consumedLicenses,
-                                borderColor: 'red',
-                                fill: false
-                            },
-                            {
-                                label: 'Available Licenses',
-                                data: availableLicenses,
-                                borderColor: 'green',
-                                fill: false
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Date'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Count'
-                                }
-                            }
-                        }
+        chartInstances[sku] = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: formattedDates,
+            datasets: [
+              {
+                label: 'Total Licenses',
+                data: entries.map(e => e.PrepaidUnits),
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: 'Consumed Licenses',
+                data: entries.map(e => e.ConsumedUnits),
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: 'Available Licenses',
+                data: entries.map(e => e.AvailableLicenses),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            plugins: {
+              tooltip: {
+                enabled: true,
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                      label += ': ';
                     }
-                });
-            });
-        }
+                    if (context.parsed.y !== null) {
+                      label += context.parsed.y;
+                    }
+                    return label;
+                  }
+                }
+              },
+              legend: {
+                position: 'top',
+              },
+              title: {
+                display: true,
+                text: 'License Usage Over Time'
+              }
+            },
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                },
+                ticks: {
+                  autoSkip: true,
+                  maxRotation: 45,
+                  minRotation: 30
+                },
+                grid: {
+                  display: false
+                }
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Number of Licenses'
+                },
+                beginAtZero: true,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.1)'
+                }
+              }
+            }
+          }
+        });
+      });
+    }
 
-        // Call the function to fetch and render data
-        fetchLicenseData();
-    </script>
+    fetchLicenseData();
+  </script>
 </body>
 </html>

@@ -1,23 +1,23 @@
-from flask import Flask, jsonify, send_from_directory, render_template
-import pandas as pd
+from flask import Flask, jsonify, send_from_directory
+import os
+import json
 
 app = Flask(__name__)
 
-# Route to serve the API data
 @app.route('/api/licenses', methods=['GET'])
 def get_license_data():
-    # Load the CSV data
-    file_path = r"C:\Users\914476\Documents\Github\AzureLicenseBilling\dat\licenseData.csv"
-    data = pd.read_csv(file_path)
-    # Convert the data to JSON format
-    return jsonify(data.to_dict(orient='records'))
+    json_path = os.path.join(app.root_path, 'dat', 'billingData.json')
+    try:
+        with open(json_path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': f'Error reading billingData.json: {str(e)}'}), 500
 
-# Route to serve the HTML page
 @app.route('/', methods=['GET'])
 def serve_homepage():
     return send_from_directory('.', 'index.html')
 
-# Enable serving of static files like styles.css
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory('static', filename)
