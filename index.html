@@ -29,25 +29,56 @@
   </style>
 </head>
 <body>
-  <h1>Azure AD License Tracker</h1>
+  <header>
+    <h1>Azure License Billing</h1>
+    <div id="auth-status" class="not-authenticated">Not Authenticated</div>
+  </header>
 
-  <div class="filter-container">
-    <select id="sku-select" class="sku-selector" onchange="setSKUFilter(this.value)">
-      <option value="ALL">All SKUs</option>
-    </select>
-  </div>
+  <div id="error-message" class="error-message" style="display: none;"></div>
 
-  <div id="trackers-container"></div>
+  <main>
+    <h1>Azure AD License Tracker</h1>
 
+    <div class="filter-container">
+      <select id="sku-select" class="sku-selector" onchange="setSKUFilter(this.value)">
+        <option value="ALL">All SKUs</option>
+      </select>
+    </div>
+
+    <div id="trackers-container"></div>
+  </main>
+
+  <script src="/static/js/auth.js"></script>
   <script>
     let licenseData = [];
     let selectedSKU = "ALL";
     const chartInstances = {};
 
+    // Wait for authentication to complete before fetching data
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // Wait for authentication to complete
+        await authManager.initialize();
+        
+        // Only fetch data if authentication was successful
+        if (authManager.isUserAuthenticated()) {
+          await fetchLicenseData();
+        } else {
+          showError('Authentication failed. Please refresh the page or contact support.');
+        }
+      } catch (error) {
+        console.error('Initialization error:', error);
+        showError(error.message);
+      }
+    });
+
     async function fetchLicenseData() {
       try {
-        const response = await fetch('/api/licenses');
-        const data = await response.json();
+        if (!authManager.isUserAuthenticated()) {
+          throw new Error('Not authenticated. Please refresh the page.');
+        }
+
+        const data = await authManager.makeAuthenticatedRequest('/api/licenses');
         console.log('Raw license data:', data);
         console.log('Number of entries:', data.length);
         
@@ -72,6 +103,8 @@
         renderLicenseTrackers();
       } catch (error) {
         console.error('Error fetching license data:', error);
+        showError(error.message);
+        // Don't retry on error - let user refresh if needed
       }
     }
 
@@ -241,8 +274,6 @@
         });
       });
     }
-
-    fetchLicenseData();
   </script>
 </body>
 </html>

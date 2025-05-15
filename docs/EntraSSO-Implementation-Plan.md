@@ -1,32 +1,20 @@
 # Entra ID SSO Implementation Plan
 
-## Phase 1: Azure AD Application Setup
-1. Register new application in Azure AD
-   - Name: "Azure License Tracker"
-   - Platform: Web
-   - Redirect URI: `https://msbilling/oauth2/callback`
-   - Supported account types: Single tenant
+## Phase 1: Application Configuration Review
+1. Verify existing Entra ID application settings
+   - Confirm redirect URI: `https://msbilling/oauth2/callback`
+   - Verify supported account types (Single tenant)
+   - Check existing API permissions
 
-2. Configure Authentication
-   - Enable ID tokens
+2. Configure Authentication Settings
+   - Enable ID tokens if not already enabled
    - Configure token authentication
-   - Set up logout URL
+   - Set up logout URL: `https://msbilling/logout`
 
-3. Create Security Group
-   - Name: "License Tracker Users"
+3. Security Group Setup
+   - Create or verify "License Tracker Users" group
    - Add initial admin users
    - Note down group ID for access control
-
-4. Configure API Permissions
-   - Microsoft Graph
-     - User.Read
-     - GroupMember.Read.All
-   - Grant admin consent
-
-5. Create Client Secret
-   - Generate new client secret
-   - Store securely in Secret Server
-   - Note expiration date
 
 ## Phase 2: Application Code Changes
 
@@ -37,9 +25,9 @@
   requests==2.31.0
   ```
 
-### 2. Secret Management
-- Implement SecretManager class
-- Configure Secret Server integration
+### 2. Secret Management Integration
+- Implement SecretManager class to retrieve existing credentials
+- Configure Secret Server integration using existing setup
 - Add environment variables:
   ```
   SECRET_SERVER_URL
@@ -49,7 +37,7 @@
   ```
 
 ### 3. Authentication Implementation
-- Add Azure AD configuration
+- Add Azure AD configuration using existing credentials
 - Implement login/logout routes
 - Add session management
 - Create access control decorator
@@ -69,17 +57,18 @@
 - Test error handling
 - Check session management
 
-### 2. Staging Environment
-- Deploy to staging server
-- Test with real Azure AD
+### 2. Internal Network Testing
+- Deploy to internal server
+- Test with real Entra ID
 - Verify security group access
 - Test SSO integration
+- Verify internal network access
 
 ### 3. Security Testing
-- Penetration testing
 - Token validation
 - Session security
 - Access control verification
+- Internal network security
 
 ## Phase 4: Production Deployment
 
@@ -91,9 +80,9 @@
 - [ ] Rollback plan prepared
 
 ### 2. Production Setup
-- Configure production Azure AD app
-- Set up production security group
-- Configure production URLs
+- Configure internal DNS for msbilling
+- Set up SSL certificate
+- Configure IIS/Apache for internal access
 - Set up monitoring and logging
 
 ### 3. Deployment Steps
@@ -120,11 +109,11 @@
 ### 3. Maintenance
 - Schedule token rotation
 - Plan for security updates
-- Monitor Azure AD changes
+- Monitor Entra ID changes
 - Regular security reviews
 
 ## Timeline
-- Phase 1: 1-2 days
+- Phase 1: 1 day
 - Phase 2: 2-3 days
 - Phase 3: 2-3 days
 - Phase 4: 1-2 days
@@ -150,4 +139,5 @@
 - Error handling
 - Logging and monitoring
 - Secret management
-- Regular security reviews 
+- Regular security reviews
+- Internal network security 

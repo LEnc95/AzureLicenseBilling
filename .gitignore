@@ -32,3 +32,18 @@ Desktop.ini
 .LSOverride
 
 dat/licenseData.csv
+
+# Flask secret key
+SECRET_KEY=your-flask-secret-key
+
+# Secret Server configuration
+SECRET_SERVER_URL=https://creds.gianteagle.com/SecretServer
+SECRET_ID_AZURE_CREDENTIALS=42813
+
+# (Optional) NTLM credentials for Secret Server
+# Use DOMAIN\\username format for Windows domain accounts
+SECRET_SERVER_USERNAME=DOMAIN\\yourusername
+SECRET_SERVER_PASSWORD=yourpassword
+
+# Azure AD group for access control
+ALLOWED_GROUP_ID=your-entra-group-id
