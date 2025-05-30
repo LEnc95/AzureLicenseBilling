@@ -8,6 +8,7 @@ venv/
 ENV/
 env/
 .env
+.venv/
 
 # IDE
 .vscode/
@@ -20,6 +21,7 @@ env/
 *.log
 *.csv
 *.json
+!dat/billingData.json  # Keep the template file
 
 # Windows
 Thumbs.db
@@ -30,6 +32,19 @@ Desktop.ini
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Application specific
+*.key
+*.pem
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
 
 dat/licenseData.csv
 

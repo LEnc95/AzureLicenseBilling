@@ -4,6 +4,7 @@ import json
 from secret_manager import SecretManager
 import requests
 from functools import wraps
+from config import Config
 
 app = Flask(__name__)
 
@@ -12,8 +13,8 @@ secret_server_url = os.getenv('SECRET_SERVER_URL', 'https://creds.gianteagle.com
 secret_id = int(os.getenv('SECRET_ID_AZURE_CREDENTIALS', '42813'))
 secret_manager = SecretManager(secret_server_url, secret_id)
 
-# Security group ID - replace with your actual security group ID
-REQUIRED_SECURITY_GROUP_ID = os.getenv('REQUIRED_SECURITY_GROUP_ID', 'your-security-group-id')
+# Security group ID from config
+REQUIRED_SECURITY_GROUP_ID = Config.ALLOWED_GROUP_ID
 
 def require_security_group_membership(f):
     @wraps(f)

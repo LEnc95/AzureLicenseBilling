@@ -43,6 +43,13 @@
       <select id="sku-select" class="sku-selector" onchange="setSKUFilter(this.value)">
         <option value="ALL">All SKUs</option>
       </select>
+      <select id="date-range-select" class="date-selector" onchange="setDateRangeFilter(this.value)">
+        <option value="ALL">All Time</option>
+        <option value="6M">Last 6 Months</option>
+        <option value="3M">Last 3 Months</option>
+        <option value="1M">Last Month</option>
+        <option value="1W">Last Week</option>
+      </select>
     </div>
 
     <div id="trackers-container"></div>
@@ -52,6 +59,7 @@
   <script>
     let licenseData = [];
     let selectedSKU = "ALL";
+    let selectedDateRange = "ALL";
     const chartInstances = {};
 
     // Wait for authentication to complete before fetching data
@@ -71,6 +79,29 @@
         showError(error.message);
       }
     });
+
+    function getDateRangeFilter(date) {
+      const now = new Date();
+      const entryDate = new Date(date);
+      
+      switch (selectedDateRange) {
+        case '1W':
+          return now - entryDate <= 7 * 24 * 60 * 60 * 1000; // 7 days
+        case '1M':
+          return now - entryDate <= 30 * 24 * 60 * 60 * 1000; // 30 days
+        case '3M':
+          return now - entryDate <= 90 * 24 * 60 * 60 * 1000; // 90 days
+        case '6M':
+          return now - entryDate <= 180 * 24 * 60 * 60 * 1000; // 180 days
+        default:
+          return true; // 'ALL' - no date filtering
+      }
+    }
+
+    function setDateRangeFilter(range) {
+      selectedDateRange = range;
+      renderLicenseTrackers();
+    }
 
     async function fetchLicenseData() {
       try {
@@ -104,7 +135,6 @@
       } catch (error) {
         console.error('Error fetching license data:', error);
         showError(error.message);
-        // Don't retry on error - let user refresh if needed
       }
     }
 
@@ -131,22 +161,37 @@
 
       const groupedBySKU = {};
 
-      // First, let's log all unique dates we have
-      const allDates = new Set(licenseData.map(entry => entry.DateRetrieved || entry.Date));
-      console.log('All unique dates in dataset:', [...allDates].sort());
+      // Filter data based on selected date range
+      const filteredData = licenseData.filter(entry => {
+        const date = entry.DateRetrieved || entry.Date;
+        return getDateRangeFilter(date);
+      });
 
-      licenseData.forEach(entry => {
+      // First, let's log all unique dates we have
+      const allDates = new Set(filteredData.map(entry => entry.DateRetrieved || entry.Date));
+      console.log('All unique dates in filtered dataset:', [...allDates].sort());
+
+      // Group data by SKU and date, keeping only the most recent entry for each day
+      filteredData.forEach(entry => {
         const date = entry.DateRetrieved || entry.Date;
         const sku = entry.SKUPartNumber;
+        const dateKey = new Date(date).toISOString().split('T')[0]; // Get just the date part
 
         if (selectedSKU !== "ALL" && selectedSKU !== sku) return;
 
-        if (!groupedBySKU[sku]) groupedBySKU[sku] = [];
-        groupedBySKU[sku].push({ ...entry, Date: date });
+        if (!groupedBySKU[sku]) {
+          groupedBySKU[sku] = {};
+        }
+        
+        // Only keep the most recent entry for each day
+        if (!groupedBySKU[sku][dateKey] || new Date(date) > new Date(groupedBySKU[sku][dateKey].Date)) {
+          groupedBySKU[sku][dateKey] = { ...entry, Date: date };
+        }
       });
 
       Object.keys(groupedBySKU).forEach(sku => {
-        const entries = groupedBySKU[sku].sort((a, b) => new Date(a.Date) - new Date(b.Date));
+        // Convert the object of entries back to an array and sort by date
+        const entries = Object.values(groupedBySKU[sku]).sort((a, b) => new Date(a.Date) - new Date(b.Date));
         console.log(`Data for SKU ${sku}:`, {
           totalEntries: entries.length,
           dateRange: {
@@ -214,13 +259,12 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-              intersect: false,
-              mode: 'index'
-            },
             plugins: {
+              title: {
+                display: true,
+                text: `${sku} License Usage`
+              },
               tooltip: {
-                enabled: true,
                 mode: 'index',
                 intersect: false,
                 callbacks: {
@@ -237,11 +281,7 @@
                 }
               },
               legend: {
-                position: 'top',
-              },
-              title: {
-                display: true,
-                text: 'License Usage Over Time'
+                position: 'top'
               }
             },
             scales: {
@@ -254,9 +294,6 @@
                   autoSkip: true,
                   maxRotation: 45,
                   minRotation: 30
-                },
-                grid: {
-                  display: false
                 }
               },
               y: {

@@ -7,24 +7,18 @@
 # parent directory is the directory where the script is located
 $parentdir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
-# File path to store daily license data
-$filePath = "$parentdir\dat\graphLicenseData.csv"
+# Get the project root directory
+$rootDir = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$filePath = Join-Path $rootDir 'dat\graphLicenseData.csv'
 
 # Get the current date
 $currentDate = Get-Date -Format "yyyy-MM-dd"
 
 # Set the required permissions scope
-$scopes = @("https://graph.microsoft.com/.default")
+$scopes = @("Directory.Read.All")
 
-# Define service principal credentials
-$tenantId = "fe7b0418-5142-4fcf-9440-7a0163adca0d"
-$clientId = "1433fc48-bc46-43b6-a57a-03289a6b535f"
-$clientSecret = "YOUR_CLIENT_SECRET"
-
-# Connect to Microsoft Graph using the service principal credentials
-$secureClientSecret = ConvertTo-SecureString $clientSecret -AsPlainText -Force
-$credential = New-Object -TypeName Microsoft.Graph.Auth.ClientCredential -ArgumentList $clientId, $secureClientSecret
-Connect-MgGraph -TenantId $tenantId -ClientCredential $credential -Scopes $scopes
+# Connect to Microsoft Graph using the REST API
+Connect-MgGraph -Scopes $scopes
 
 # Retrieve access token
 $accessToken = (Get-MgContext).AccessToken

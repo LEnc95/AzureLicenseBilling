@@ -22,7 +22,7 @@ class SecretManager:
         self._session = requests.Session()
         self._session.verify = False  # Disable SSL verification for internal certificates
         
-        # Use NTLM authentication with current user's credentials
+        # Use Windows Integrated Authentication
         self._session.auth = HttpNtlmAuth('', '')  # Empty credentials will use current user's context
         
         if use_tls12:
@@ -63,7 +63,7 @@ class SecretManager:
 
     def get_azure_credentials(self) -> Dict[str, str]:
         """
-        Retrieve Azure AD credentials from Secret Server.
+        Retrieve Azure AD credentials from Secret Server using Windows Integrated Authentication.
         Returns a dictionary containing client_id, client_secret, and tenant_id.
         """
         try:
