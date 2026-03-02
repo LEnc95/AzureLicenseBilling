@@ -3,10 +3,11 @@ $now = Get-Date
 $currentDate = $now.ToString("yyyy-MM-dd")
 $currentTime = $now.ToString("HH:mm:ss")
 
-$parentdir = $PSScriptRoot
-$csvPath = "$parentdir\dat\licenseData.csv"
-$jsonPath = "$parentdir\dat\billingData.json"
-$logPath = "$parentdir\dat\log.txt"
+# Get the project root directory
+$rootDir = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$csvPath = Join-Path $rootDir 'dat\licenseData.csv'
+$jsonPath = Join-Path $rootDir 'dat\billingData.json'
+$logPath = Join-Path $rootDir 'dat\log.txt'
 
 Write-Host "Starting migration from CSV to JSON..."
 

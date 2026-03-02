@@ -1,11 +1,9 @@
 # Connect to Azure AD
 #Connect-AzureAD
 
-#parent directory is the directory where the script is located
-$parentdir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-
-# File path to store daily license data
-$filePath = "$parentdir\dat\licenseData.csv"
+# Get the project root directory
+$rootDir = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$filePath = Join-Path $rootDir 'dat\licenseData.csv'
 
 # Get the current date
 $currentDate = Get-Date -Format "yyyy-MM-dd"

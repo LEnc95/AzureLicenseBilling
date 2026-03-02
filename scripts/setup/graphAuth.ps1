@@ -7,8 +7,9 @@
 # parent directory is the directory where the script is located
 $parentdir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
-# File path to store daily license data
-$filePath = "$parentdir\dat\graphLicenseData.csv"
+# Get the project root directory
+$rootDir = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$filePath = Join-Path $rootDir 'dat\graphLicenseData.csv'
 
 # Get the current date
 $currentDate = Get-Date -Format "yyyy-MM-dd"

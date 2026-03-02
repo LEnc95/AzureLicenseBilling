@@ -3,6 +3,12 @@ $now = Get-Date
 $currentDate = $now.ToString("yyyy-MM-dd")
 $currentTime = $now.ToString("HH:mm:ss")
 
+# Get the project root directory
+$rootDir = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$csvPath = Join-Path $rootDir 'dat\billingData.csv'
+$jsonPath = Join-Path $rootDir 'dat\billingData.json'
+$logPath = Join-Path $rootDir 'dat\log.txt'
+
 function Get-SecretServerSecretDetails {
     [CmdletBinding()]
     param(
@@ -72,7 +78,7 @@ try {
 } catch {
     $errorMessage = "[$currentDate $currentTime] ERROR: Failed to retrieve access token: $($_.Exception.Message)"
     Write-Error $errorMessage
-    Add-Content -Path "$PSScriptRoot\dat\log.txt" -Value $errorMessage
+    Add-Content -Path $logPath -Value $errorMessage
     return
 }
 
@@ -91,7 +97,7 @@ try {
 } catch {
     $errorMessage = "[$currentDate $currentTime] ERROR: Failed to retrieve billing data: $($_.Exception.Message)"
     Write-Error $errorMessage
-    Add-Content -Path "$PSScriptRoot\dat\log.txt" -Value $errorMessage
+    Add-Content -Path $logPath -Value $errorMessage
     return
 }
 
@@ -111,11 +117,6 @@ $billingData = $response.value | ForEach-Object {
 }
 
 $billingData | Format-Table -AutoSize
-
-$parentdir = $PSScriptRoot
-$csvPath = "$parentdir\dat\billingData.csv"
-$jsonPath = "$parentdir\dat\billingData.json"
-$logPath = "$parentdir\dat\log.txt"
 
 $logMessage = "[$currentDate $currentTime] Billing data retrieved and saved."
 
